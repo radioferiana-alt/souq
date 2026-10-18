@@ -95,6 +95,7 @@ select,input,textarea{padding:11px 12px;border:1px solid var(--line);border-radi
     <label>اسم المنتج</label><input id="pName">
     <label>السعر</label><input id="pPrice" type="number" min="0" step="any">
     <label>التصنيف</label><select id="pCat"></select>
+    <input id="hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
     <label>الوصف</label><textarea id="pDesc" rows="3"></textarea>
     <label>صورة (اختياري)</label><input id="pImg" type="file" accept="image/*">
     <div class="acts"><button class="btn y" id="addProd">نشر المنتج</button><button class="btn ghost" data-close>إغلاق</button></div>
@@ -191,13 +192,17 @@ $('#pImg').onchange=async e=>{st.img=e.target.files[0]?await resize(e.target.fil
 $('#addProd').onclick=async()=>{
  const name=$('#pName').value.trim(),price=parseFloat($('#pPrice').value);
  if(!name||!(price>=0))return toast('أدخل اسم المنتج وسعره');
+ if($('#hp').value)return toast('تم نشر المنتج ✅');
  const btn=$('#addProd');btn.disabled=true;
  try{
   const r=await fetch(SB.url+'/rest/v1/souq_products',{method:'POST',headers:{...H,Prefer:'return=minimal'},body:JSON.stringify({shop_id:shop.id,owner_token:shop.token,shop:shop.name,phone:shop.phone,city:shop.city,name,price,cat:$('#pCat').value,description:$('#pDesc').value.trim(),img:st.img})});
   if(!r.ok)throw new Error(await r.text());
   ['#pName','#pPrice','#pDesc','#pImg'].forEach(s=>$(s).value='');st.img='';
   toast('تم نشر المنتج ✅');await fetchProducts();
- }catch(e){toast('فشل النشر — تأكد من تشغيل schema.sql في Supabase')}
+ }catch(e){
+  const m=String(e.message).match(/SOUQ_[A-Z_]+: ([^"\\]+)/);
+  toast(m?m[1]:'فشل النشر — حاول مرة أخرى');
+ }
  btn.disabled=false;
 };
 async function delProd(id){
