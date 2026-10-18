@@ -245,6 +245,26 @@ async function delProd(id){
   toast('تم الحذف ✅ بالتوفيق في مبيعاتك');await fetchProducts();
  }catch{toast('تعذّر الحذف')}
 }
+const statsKey=new URLSearchParams(location.search).get('stats');
+if(statsKey){
+ fetch(SB.url+'/rest/v1/rpc/souq_stats',{method:'POST',headers:H,body:JSON.stringify({p_key:statsKey})})
+  .then(r=>r.ok?r.json():Promise.reject()).then(s=>{
+   const c=(n,l)=>`<div class="mine" style="flex-direction:column;align-items:flex-start"><b style="font-size:26px">${n}</b><span class="meta">${l}</span></div>`;
+   $('#detail').innerHTML=`<h2>📊 إحصائيات السوق</h2>
+    ${c(s.unique_total,'زائر مختلف (إجمالي)')}${c(s.today,'زوار اليوم')}${c(s.last7,'زوار آخر 7 أيام')}${c(s.last30,'زوار آخر 30 يومًا')}
+    ${c(s.visits_total,'إجمالي الزيارات اليومية')}${c(s.products,'منتجات منشورة')}${c(s.shops,'متاجر')}
+    <h3 style="margin-top:14px">آخر 14 يومًا</h3>${s.days.map(d=>`<div class="mine"><span class="t">${d.day}</span><b>${d.n}</b></div>`).join('')||'<p class="meta">لا زيارات مسجلة بعد.</p>'}
+    <p class="meta" style="margin-top:10px">الزائر يُحسب مرة واحدة يوميًا لكل متصفح.</p>
+    <div class="acts"><button class="btn ghost" data-close>إغلاق</button></div>`;
+   $('#mDetail').classList.add('on');
+  }).catch(()=>toast('مفتاح الإحصائيات غير صحيح'));
+}else if(/\.github\.io$/.test(location.hostname)){
+ try{
+  let v=localStorage.getItem('souq_vid');
+  if(!v){v=crypto.randomUUID();localStorage.setItem('souq_vid',v)}
+  fetch(SB.url+'/rest/v1/rpc/souq_visit',{method:'POST',headers:H,body:JSON.stringify({p_visitor:v})}).catch(()=>{});
+ }catch{}
+}
 renderCats();renderCities();render();fetchProducts();
 </script>
 </body>
