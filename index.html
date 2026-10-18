@@ -107,6 +107,9 @@ select,input,textarea{padding:11px 12px;border:1px solid var(--line);border-radi
     <label>رقم واتساب (مع رمز الدولة، مثال 21612345678)</label><input id="sPhone" inputmode="tel" dir="ltr">
     <label>المدينة</label><input id="sCity">
     <div class="acts"><button class="btn y" id="saveShop">حفظ المتجر</button><button class="btn ghost" data-close>إغلاق</button></div>
+    <h3 style="margin-top:18px">لديك متجر من قبل؟</h3>
+    <label>الصق رمز المتجر</label><input id="sCode" dir="ltr">
+    <div class="acts"><button class="btn ghost sm" id="restoreShop">استعادة المتجر</button></div>
   </div>
   <div id="prodForm" hidden>
     <p class="meta" id="shopLine"></p>
@@ -117,7 +120,10 @@ select,input,textarea{padding:11px 12px;border:1px solid var(--line);border-radi
     <label>الوصف</label><textarea id="pDesc" rows="3"></textarea>
     <label>صورة (اختياري)</label><input id="pImg" type="file" accept="image/*">
     <div class="acts"><button class="btn y" id="addProd">نشر المنتج</button><button class="btn ghost" data-close>إغلاق</button></div>
-    <h3 style="margin-top:18px">منتجاتي</h3><div id="mine"></div>
+    <h3 style="margin-top:18px">منتجاتي</h3><p class="meta">اضغط «تم البيع» لإزالة المنتج من السوق بعد بيعه.</p><div id="mine"></div>
+    <h3 style="margin-top:18px">استخدام متجرك من جهاز آخر</h3>
+    <p class="meta">انسخ رمز المتجر واحفظه؛ يلزمك لحذف منتجاتك من هاتف أو متصفح آخر. لا تشاركه مع أحد.</p>
+    <div class="acts"><button class="btn ghost sm" id="copyCode">نسخ رمز المتجر</button></div>
   </div>
 </div></div>
 <div class="toast" id="toast"></div>
@@ -172,7 +178,9 @@ function openDetail(id){
   <h2>${esc(p.name)}</h2><div class="price" style="font-size:22px">${p.price} ${CUR}</div>
   <p style="margin:8px 0">${esc(p.desc)||''}</p>
   <p class="meta">🏪 ${esc(p.shop)} · 📍 ${esc(p.city)}</p>
-  <div class="acts"><a class="btn wa" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/${encodeURIComponent(p.phone)}?text=${msg}">اطلب عبر واتساب</a>
+  <div class="acts">${shop&&p.shop_id===shop.id
+   ?`<button class="btn" style="background:var(--bad)" data-del="${p.id}">✔ تم البيع — احذف المنتج</button>`
+   :`<a class="btn wa" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/${encodeURIComponent(p.phone)}?text=${msg}">اطلب عبر واتساب</a>`}
   <button class="btn ghost" data-close>إغلاق</button></div>`;
  $('#mDetail').classList.add('on');
 }
@@ -181,7 +189,7 @@ function renderSell(){
  if(!shop)return;
  $('#shopLine').textContent=`متجرك: ${shop.name} · ${shop.city}`;
  const mine=products.filter(p=>p.shop_id===shop.id);
- $('#mine').innerHTML=mine.length?mine.map(p=>`<div class="mine"><span>${icon(p.cat)}</span><span class="t">${esc(p.name)}<br><span class="meta">${p.price} ${CUR}</span></span><button class="btn ghost sm" data-del="${p.id}">حذف</button></div>`).join(''):'<p class="meta">لم تنشر شيئًا بعد.</p>';
+ $('#mine').innerHTML=mine.length?mine.map(p=>`<div class="mine"><span>${icon(p.cat)}</span><span class="t">${esc(p.name)}<br><span class="meta">${p.price} ${CUR}</span></span><button class="btn ghost sm" data-del="${p.id}">✔ تم البيع</button></div>`).join(''):'<p class="meta">لم تنشر شيئًا بعد.</p>';
 }
 function resize(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const i=new Image();i.onload=()=>{const m=600,k=Math.min(1,m/Math.max(i.width,i.height));const c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.75))};i.onerror=()=>res('');i.src=r.result};r.onerror=()=>res('');r.readAsDataURL(file)})}
 
@@ -206,6 +214,18 @@ $('#saveShop').onclick=()=>{
  if(!name||phone.length<8||!city)return toast('أكمل الاسم والواتساب والمدينة');
  shop={id:crypto.randomUUID(),token:crypto.randomUUID()+crypto.randomUUID(),name,phone,city};save('souq_shop',shop);renderSell();toast('تم إنشاء المتجر ✅');
 };
+$('#copyCode').onclick=async()=>{
+ const code=btoa(unescape(encodeURIComponent(JSON.stringify(shop))));
+ try{await navigator.clipboard.writeText(code);toast('تم نسخ رمز المتجر ✅')}catch{prompt('انسخ الرمز:',code)}
+};
+$('#restoreShop').onclick=()=>{
+ try{
+  const s=JSON.parse(decodeURIComponent(escape(atob($('#sCode').value.trim()))));
+  if(!s.id||!s.token||!s.name||!s.phone||!s.city)throw 0;
+  shop={id:String(s.id),token:String(s.token),name:String(s.name),phone:String(s.phone),city:String(s.city)};
+  save('souq_shop',shop);renderSell();render();toast('تمت استعادة المتجر ✅');
+ }catch{toast('الرمز غير صحيح')}
+};
 $('#pImg').onchange=async e=>{st.img=e.target.files[0]?await resize(e.target.files[0]):''};
 $('#addProd').onclick=async()=>{
  const name=$('#pName').value.trim(),price=parseFloat($('#pPrice').value);
@@ -227,7 +247,8 @@ async function delProd(id){
  try{
   const r=await fetch(SB.url+'/rest/v1/rpc/souq_delete',{method:'POST',headers:H,body:JSON.stringify({p_id:id,p_token:shop.token})});
   if(!r.ok||(await r.json())!==true)throw 0;
-  toast('تم الحذف');await fetchProducts();
+  $('#mDetail').classList.remove('on');
+  toast('تم الحذف ✅ بالتوفيق في مبيعاتك');await fetchProducts();
  }catch{toast('تعذّر الحذف')}
 }
 renderCats();renderCities();render();fetchProducts();
